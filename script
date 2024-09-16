@@ -1,0 +1,88 @@
+$VCenter = @('datacenter1.com','datacenter2.com')
+$AdminUser = 'xxxxxxx'
+$Password = 'xxxxxxx'
+
+function Get-ArchitectureSettings {
+    [CmdletBinding()]
+    param
+    (
+    [Parameter(Mandatory=$False,
+        ValueFromPipeline=$True,
+        ValueFromPipelineByPropertyName=$True,
+        HelpMessage='What is the Cluster Name?')]
+    $cluster = (Get-Cluster -Server $Server),
+
+    [Parameter(Mandatory=$False)]
+    [VMware.VimAutomation.Types.VIServer[]]$Server = $global:DefaultVIServers
+    )
+
+    Process {
+
+        Foreach ($Clus in $Cluster) {
+
+            Write-Verbose "Processing Cluster $($Clus.Name)"
+
+            # Determine input and convert to ClusterImpl object
+            Switch ($Clus.GetType().Name)
+            {
+                "string" {$CL = Get-Cluster $Clus  -Server $Server -ErrorAction SilentlyContinue}
+                "ClusterImpl" {$CL = $Clus}
+            }
+
+            If ($CL) {
+                # Work with the Cluster View
+                $ClusterMod = Get-View -Id "ClusterComputeResource-$($CL.ExtensionData.MoRef.Value)" -Server $Server
+
+                # Create Hashtable with desired properties to return
+                $properties = [ordered]@{
+					'vCenter' = $global:DefaultVIServers.Name;
+                    'Cluster' = $ClusterMod.Name;
+					'VMCP Status' = $clustermod.Configuration.DasConfig.VmComponentProtecting;
+					'VmStorageProtectionForAPD' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmComponentProtectionSettings.VmStorageProtectionForAPD;
+					'EnableAPDTimeoutForHosts' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmComponentProtectionSettings.EnableAPDTimeoutForHosts;
+					'VmTerminateDelayForAPDSec' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmComponentProtectionSettings.VmTerminateDelayForAPDSec;
+					'VmReactionOnAPDCleared' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmComponentProtectionSettings.VmReactionOnAPDCleared;
+					'VmStorageProtectionForPDL' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmComponentProtectionSettings.VmStorageProtectionForPDL;
+					'HA VM monitoring Cluster Settings' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.ClusterSettings;  
+                    'HA VM monitoring' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.Enabled;
+					'HA VM VmMonitoring' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.VmMonitoring;
+					'HA VM monitoring FailureInterval' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.FailureInterval;
+					'HA monitoring VM MinUpTime' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.MinUpTime;
+                    'HA monitoring VM MaxFailures' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.MaxFailures;
+					'HA monitoring VM MaxFailureWindow' = $clustermod.Configuration.DasConfig.DefaultVmSettings.VmToolsMonitoringSettings.MaxFailureWindow;
+					'HA VM IsolationResponse' = $clustermod.Configuration.DasConfig.DefaultVmSettings.IsolationResponse; 
+					'HA VM RestartPriority' = $clustermod.Configuration.DasConfig.DefaultVmSettings.RestartPriority;
+					'ADP FailoverLevel' = $clustermod.Configuration.DasConfig.AdmissionControlPolicy.FailoverLevel;
+                    'ADP AutoComputePercentages' = $clustermod.Configuration.DasConfig.AdmissionControlPolicy.AutoComputePercentages;
+					'ADP ResourceReductionToToleratePercent' = $clustermod.Configuration.DasConfig.AdmissionControlPolicy.ResourceReductionToToleratePercent;
+					'HA AdmissionControlEnabled' = $clustermod.Configuration.DasConfig.AdmissionControlEnabled;
+					'HA VmComponentProtecting' = $clustermod.Configuration.DasConfig.VmComponentProtecting;
+					'HA VmMonitoring' = $clustermod.Configuration.DasConfig.VmMonitoring;
+					'HA HBDatastoreCandidatePolicy' = $clustermod.Configuration.DasConfig.HBDatastoreCandidatePolicy;
+					'HA HostMonitoring' = $clustermod.Configuration.DasConfig.HostMonitoring;
+					'HA Enabled' = $clustermod.Configuration.DasConfig.Enabled;
+					'DRS Enabled' = $clustermod.Configuration.DrsConfig.Enabled;
+					'DRS EnableVmBehaviorOverrides' = $clustermod.Configuration.DrsConfig.EnableVmBehaviorOverrides;
+					'DRS VmotionRate' = $clustermod.Configuration.DrsConfig.VmotionRate;
+					'EVC mode' = $clustermod.Summary.CurrentEVCModeKey
+                }
+
+                # Create PSObject with the Hashtable
+                $object = New-Object -TypeName PSObject -Prop $properties
+
+                # Show object
+                $object
+            }
+        }
+    }
+}
+
+foreach ($WCenter in $VCenter) {
+Connect-VIServer $WCenter -User $AdminUser -Password $Password;
+Get-JeromeSettings | Export-Csv -Append -Path C:\Users\geri\Desktop\finaltry.csv -NoTypeInformation;
+Disconnect-VIServer $WCenter
+}
+
+
+$VCenter = @('datacenter1.com','datacenter2.com', 'datacenter3.com')
+
